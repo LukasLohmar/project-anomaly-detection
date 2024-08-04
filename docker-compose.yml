@@ -1,0 +1,59 @@
+services:
+  minio:
+    restart: always
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --address ':9000' --console-address ':9001'
+    environment:
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
+      - MINIO_ROOT_PASSWORD=${AWS_ACCESS_KEY}
+    volumes:
+      - minio_data:/data
+
+  minio_client:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    container_name: minio_client
+    env_file:
+      - .env
+    entrypoint: /bin/sh -c "/tmp/wait-for-it.sh minio:9000 && /usr/bin/mc alias set minio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_ACCESS_KEY} && /usr/bin/mc mb minio/mlflow; exit 0;"
+    volumes:
+      - ./wait-for-it.sh:/tmp/wait-for-it.sh
+
+  db:
+    restart: always
+    image: mysql/mysql-server:latest
+    container_name: database
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+
+  mlflow_web:
+    restart: always
+    build: ./mlflow
+    image: mlflow
+    container_name: mlflow
+    depends_on:
+      - minio_client
+      - db
+    ports:
+      - "5000:5000"
+    command: "mlflow server --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE} --default-artifact-root s3://mlflow/ --host 0.0.0.0"
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+
+volumes:
+  dbdata:
+  minio_data:
