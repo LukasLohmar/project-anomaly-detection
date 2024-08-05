@@ -7,8 +7,8 @@ from sklearn.datasets import make_blobs
 
 x, y = make_blobs(n_samples=10_000, n_features=3, cluster_std=6, centers=[[40, 40, 40]], shuffle=True, random_state=15,
                   center_box=(30, 70))
-x_outlier, y_outlier = make_blobs(n_samples=1_250, n_features=3, centers=5, shuffle=True, random_state=15,
-                                  center_box=(5, 105))
+x_outlier, y_outlier = make_blobs(n_samples=1_250, n_features=3, cluster_std=15, centers=5, shuffle=True,
+                                  random_state=15, center_box=(5, 105))
 
 for row in x_outlier:
     x = np.vstack([x, row])
